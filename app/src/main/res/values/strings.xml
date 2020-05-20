@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">LedBackbackRemote</string>
+    <string name="title_item_detail">Item Detail</string>
+    <string name="title_activity_btconnection">BTConnectionActivity</string>
+    <string name="bt_connection_description">Hello, please switch on the Backpack and wait until bluetooth connection will be established</string>
+    <string name="bt_connection_continue">Let\'s Start!</string>
+</resources>
