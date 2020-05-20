@@ -1,7 +1,8 @@
 package com.example.ledbackbackremote.model
 
 import android.os.Handler
-import android.view.View.*
+import android.view.View.INVISIBLE
+import android.view.View.VISIBLE
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Transformations
 import androidx.lifecycle.ViewModel

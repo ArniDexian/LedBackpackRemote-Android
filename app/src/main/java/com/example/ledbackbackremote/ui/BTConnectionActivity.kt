@@ -8,9 +8,8 @@ import androidx.databinding.DataBindingUtil
 import com.example.ledbackbackremote.R
 import com.example.ledbackbackremote.databinding.ActivityBtconnectionBinding
 import com.example.ledbackbackremote.model.BTConnectionViewModel
-import org.koin.androidx.viewmodel.ext.android.viewModel
-
 import kotlinx.android.synthetic.main.activity_btconnection.*
+import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class BTConnectionActivity : AppCompatActivity() {
 
