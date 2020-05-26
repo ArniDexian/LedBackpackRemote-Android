@@ -22,6 +22,8 @@ class BTConnectionViewModel (
                 BTConnectionState.PAIRING -> "Pairing..."
                 BTConnectionState.CONNECTING -> "Connecting..."
                 BTConnectionState.CONNECTED -> "Connected!"
+                BTConnectionState.DISABLED -> "Bluetooth is not available :("
+                BTConnectionState.SEARCHING -> "SEARCHING BackPack"
             }
         }
         launchButtonVisibility = Transformations.map(service.state) {

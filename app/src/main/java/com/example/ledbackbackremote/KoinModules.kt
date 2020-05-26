@@ -5,6 +5,6 @@ import com.example.ledbackbackremote.model.BTConnectionViewModel
 import org.koin.dsl.module
 
 var mainModule = module {
-    single { BTService() }
+    single { BTService(get()) }
     factory { BTConnectionViewModel(get()) }
 }
