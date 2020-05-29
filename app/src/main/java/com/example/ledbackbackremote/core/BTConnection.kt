@@ -18,7 +18,7 @@ const val MESSAGE_TOAST: Int = 2
 private const val MY_UUID = "00001101-0000-1000-8000-00805F9B34FB"
 
 class BTConnection(
-    var device: BluetoothDevice,
+    private val device: BluetoothDevice,
     private val transferHandler: Handler
 ) {
     enum class State {
@@ -42,6 +42,13 @@ class BTConnection(
         connectThread = ConnectThread(device).apply {
             start()
         }
+    }
+
+    fun close() {
+        connectThread?.cancel()
+        connectThread = null
+        connectionThread?.cancel()
+        connectionThread = null
     }
 
     private fun onConnect(socket: BluetoothSocket) {
@@ -72,8 +79,9 @@ class BTConnection(
         fun cancel() {
             try {
                 mmSocket?.close()
+                this@BTConnection.state = BTConnection.State.DISCONNECTED
             } catch (e: IOException) {
-                Log.e(CONNECTION_TAG, "Could not close the client socket", e)
+                Log.e(LOG_TAG, "Could not close the client socket", e)
             }
         }
     }
@@ -95,7 +103,7 @@ class BTConnection(
                 numBytes = try {
                     mmInStream.read(mmBuffer)
                 } catch (e: IOException) {
-                    Log.d(CONNECTION_TAG, "Input stream was disconnected", e)
+                    Log.d(LOG_TAG, "Input stream was disconnected", e)
                     break
                 }
 
@@ -113,7 +121,7 @@ class BTConnection(
             try {
                 mmOutStream.write(bytes)
             } catch (e: IOException) {
-                Log.e(CONNECTION_TAG, "Error occurred when sending data", e)
+                Log.e(LOG_TAG, "Error occurred when sending data", e)
 
                 // Send a failure message back to the activity.
                 val writeErrorMsg = transferHandler.obtainMessage(MESSAGE_TOAST)
@@ -136,8 +144,9 @@ class BTConnection(
         fun cancel() {
             try {
                 mmSocket.close()
+                this@BTConnection.state = BTConnection.State.DISCONNECTED
             } catch (e: IOException) {
-                Log.e(CONNECTION_TAG, "Could not close the connect socket", e)
+                Log.e(LOG_TAG, "Could not close the connect socket", e)
             }
         }
     }

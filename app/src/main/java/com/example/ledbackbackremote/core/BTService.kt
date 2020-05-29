@@ -10,24 +10,25 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Message
 import android.util.Log
-import androidx.lifecycle.MutableLiveData
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.example.ledbackbackremote.Config
+import com.example.ledbackbackremote.utils.Broadcast
+import com.example.ledbackbackremote.utils.Broadcasting
+import kotlin.properties.Delegates
 
-enum class BTConnectionState {
-    IDLE, SEARCHING, PAIRING, CONNECTING, CONNECTED, DISABLED
-}
-
-private const val LED_BP_NAME = "LedBackPack"
-private const val LOG_TAG = "BT"
-const val CONNECTION_TAG = "BT_CONNECTION"
-
+const val LOG_TAG = "BPRemote"
 
 class BTService(
-    private val context: Context
-) {
-    val state = MutableLiveData<BTConnectionState>()
+    private val context: Context,
+    private val config: Config,
+    private val bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter(),
+    override val broadcast: Broadcasting<DeviceConnectionService.Delegate> = Broadcast()
+): DeviceConnectionService {
+    override var state: DeviceConnectionState by Delegates.observable(DeviceConnectionState.IDLE, {_, _, new ->
+        broadcast.forEach { it.onStateChanged(new) }
+    })
+    private set
 
-    private val bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
     private var connection: BTConnection? = null
 
     private val btStateReceiver: BroadcastReceiver = object : BroadcastReceiver() {
@@ -54,7 +55,7 @@ class BTService(
                     val device: BluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
 //                    val deviceHardwareAddress = device.address // MAC address
 
-                    if (device.name == LED_BP_NAME) {
+                    if (device.name == config.deviceName) {
                         stopDiscovering()
                         connectDevice(device)
                     }
@@ -65,15 +66,23 @@ class BTService(
 
     private val transferHandler: Handler = object:  Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
-            // todo
+            when (msg.what) {
+                MESSAGE_READ -> {
+
+                }
+                MESSAGE_WRITE -> {
+
+                }
+                MESSAGE_TOAST -> {
+
+                }
+            }
         }
     }
 
     init {
-        state.value = BTConnectionState.IDLE
-
         if (bluetoothAdapter == null) {
-            state.value = BTConnectionState.DISABLED
+            state = DeviceConnectionState.DISABLED
         }
 
         val filter = IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED)
@@ -84,6 +93,19 @@ class BTService(
         } else {
             onBtConnect()
         }
+
+        // TODO: - so far simulate connection
+        Handler().postDelayed({
+            state = DeviceConnectionState.PAIRING
+        }, 1000)
+
+        Handler().postDelayed({
+            state = DeviceConnectionState.CONNECTING
+        }, 2000)
+
+        Handler().postDelayed({
+            state = DeviceConnectionState.CONNECTED
+        }, 4000)
     }
 
     private fun onBtConnect() {
@@ -96,7 +118,7 @@ class BTService(
     }
 
     private fun startDiscovering() {
-        state.postValue(BTConnectionState.SEARCHING)
+        state = DeviceConnectionState.SEARCHING
         val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
         context.registerReceiver(deviceSearchReceiver, filter)
         bluetoothAdapter?.startDiscovery()
@@ -109,27 +131,28 @@ class BTService(
 
     private fun findPairedDevice(): BluetoothDevice? {
         val pairedDevices: Set<BluetoothDevice>? = bluetoothAdapter?.bondedDevices
-        return pairedDevices?.first { device -> device.name == LED_BP_NAME }?.also {
+        return pairedDevices?.first { device -> device.name == config.deviceName }?.also {
             Log.d(LOG_TAG, "found paired device $it")
         }
     }
 
     private fun connectDevice(device: BluetoothDevice) {
-        state.postValue(BTConnectionState.CONNECTING)
+        state = DeviceConnectionState.CONNECTING
         connection = BTConnection(device, transferHandler).apply {
             stateDelegate = {
                 when (it) {
-                    BTConnection.State.CONNECTING -> this@BTService.state.postValue(BTConnectionState.CONNECTING)
-                    BTConnection.State.CONNECTED -> this@BTService.state.postValue(BTConnectionState.CONNECTED)
-                    BTConnection.State.DISCONNECTED -> this@BTService.state.postValue(BTConnectionState.IDLE)
+                    BTConnection.State.CONNECTING -> this@BTService.state = DeviceConnectionState.CONNECTING
+                    BTConnection.State.CONNECTED -> {
+                        onConnect()
+                    }
+                    BTConnection.State.DISCONNECTED -> this@BTService.state = DeviceConnectionState.IDLE
                 }
             }
             establish()
         }
     }
 
-
-
-
-
+    private fun onConnect() {
+        state = DeviceConnectionState.CONNECTED
+    }
 }
