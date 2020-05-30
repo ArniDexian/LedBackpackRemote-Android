@@ -2,6 +2,7 @@ package com.example.ledbackbackremote.core
 
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothDevice.*
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -52,26 +53,59 @@ class BTService(
         override fun onReceive(context: Context, intent: Intent) {
             when(intent.action) {
                 BluetoothDevice.ACTION_FOUND -> {
-                    val device: BluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
-//                    val deviceHardwareAddress = device.address // MAC address
+                    if (state == DeviceConnectionState.PAIRING) return
 
+                    val device: BluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
                     if (device.name == config.deviceName) {
+                        Log.e(LOG_TAG, "Found device ${device.name}, creating bond")
                         stopDiscovering()
-                        connectDevice(device)
+                        state = DeviceConnectionState.PAIRING
+                        device.createBond()
+                    }
+                }
+                // FOR Some reason this doesn't work, tried many times
+//                BluetoothDevice.ACTION_PAIRING_REQUEST -> {
+//                    val device: BluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+//                    val type = intent.getIntExtra(BluetoothDevice.EXTRA_PAIRING_VARIANT, BluetoothDevice.ERROR)
+//                    if (type == BluetoothDevice.PAIRING_VARIANT_PIN) {
+//                        Log.e(LOG_TAG, "Setting pin")
+//                        device.setPin(config.devicePin.toByteArray())
+//                        device.createBond()
+//                        abortBroadcast()
+//                    }
+//                }
+                BluetoothDevice.ACTION_BOND_STATE_CHANGED -> {
+                    val device: BluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                    when (device.bondState) {
+                        BOND_BONDING -> Log.e(LOG_TAG, "Changed bond state to BONDING")
+                        BOND_BONDED -> {
+                            Log.e(LOG_TAG, "Changed bond state to BONDED")
+                            abortDeviceBroadcastReceiver()
+                            connectDevice(device)
+                        }
+                        BOND_NONE -> {
+                            Log.e(LOG_TAG, "Changed bond state to BOND_NONE")
+                            abortDeviceBroadcastReceiver()
+                            state = DeviceConnectionState.PAIRING_FAILED
+                        }
                     }
                 }
             }
         }
     }
 
+    private fun abortDeviceBroadcastReceiver() {
+        context.unregisterReceiver(deviceSearchReceiver)
+    }
+
     private val transferHandler: Handler = object:  Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
             when (msg.what) {
                 MESSAGE_READ -> {
-
+                    Log.e(LOG_TAG, "Message is read")
                 }
                 MESSAGE_WRITE -> {
-
+                    Log.e(LOG_TAG, "Message is written")
                 }
                 MESSAGE_TOAST -> {
 
@@ -93,19 +127,6 @@ class BTService(
         } else {
             onBtConnect()
         }
-
-        // TODO: - so far simulate connection
-        Handler().postDelayed({
-            state = DeviceConnectionState.PAIRING
-        }, 1000)
-
-        Handler().postDelayed({
-            state = DeviceConnectionState.CONNECTING
-        }, 2000)
-
-        Handler().postDelayed({
-            state = DeviceConnectionState.CONNECTED
-        }, 4000)
     }
 
     private fun onBtConnect() {
@@ -119,40 +140,70 @@ class BTService(
 
     private fun startDiscovering() {
         state = DeviceConnectionState.SEARCHING
-        val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
+
+        val filter = IntentFilter()
+        filter.addAction(ACTION_FOUND)
+//        filter.addAction(ACTION_PAIRING_REQUEST)
+        filter.addAction(ACTION_BOND_STATE_CHANGED)
+        filter.priority = IntentFilter.SYSTEM_HIGH_PRIORITY - 1
         context.registerReceiver(deviceSearchReceiver, filter)
+
         bluetoothAdapter?.startDiscovery()
     }
 
     private fun stopDiscovering() {
-        context.unregisterReceiver(deviceSearchReceiver)
         bluetoothAdapter?.cancelDiscovery()
     }
 
     private fun findPairedDevice(): BluetoothDevice? {
         val pairedDevices: Set<BluetoothDevice>? = bluetoothAdapter?.bondedDevices
-        return pairedDevices?.first { device -> device.name == config.deviceName }?.also {
+        return pairedDevices?.firstOrNull { device -> device.name == config.deviceName }?.also {
             Log.d(LOG_TAG, "found paired device $it")
         }
     }
 
     private fun connectDevice(device: BluetoothDevice) {
+        if (state == DeviceConnectionState.CONNECTING) return
         state = DeviceConnectionState.CONNECTING
+
+        Log.e(LOG_TAG, "Connecting to device ${device.name}")
+
         connection = BTConnection(device, transferHandler).apply {
             stateDelegate = {
-                when (it) {
-                    BTConnection.State.CONNECTING -> this@BTService.state = DeviceConnectionState.CONNECTING
-                    BTConnection.State.CONNECTED -> {
-                        onConnect()
-                    }
-                    BTConnection.State.DISCONNECTED -> this@BTService.state = DeviceConnectionState.IDLE
-                }
+                onBtConnectionStateChanged(it, device)
             }
             establish()
         }
     }
 
-    private fun onConnect() {
-        state = DeviceConnectionState.CONNECTED
+    private fun onBtConnectionStateChanged(it: BTConnection.State, device: BluetoothDevice) {
+        when (it) {
+            BTConnection.State.CONNECTING ->
+                this@BTService.state = DeviceConnectionState.CONNECTING
+            BTConnection.State.CONNECTED ->
+                this@BTService.state = DeviceConnectionState.CONNECTED
+            BTConnection.State.DISCONNECTED ->
+                this@BTService.state = DeviceConnectionState.DISCONNECTED
+            BTConnection.State.CONNECTION_FAILED -> {
+                this@BTService.state = DeviceConnectionState.CONNECTION_FAILED
+                retryConnect(device)
+
+            }
+        }
+    }
+
+    private var retryCount: Int = 0
+    private fun retryConnect(device: BluetoothDevice) {
+        if (retryCount > 3) {
+            retryCount = 0
+            return
+        }
+
+        retryCount += 1
+        Log.e(LOG_TAG, "retry to connect in 2s, attempts: $retryCount")
+
+        Handler(Looper.getMainLooper()).postDelayed({
+            connectDevice(device)
+        }, 2000)
     }
 }

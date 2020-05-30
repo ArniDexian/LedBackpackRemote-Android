@@ -20,16 +20,20 @@ class BTConnectionViewModel (
 
     init {
         service.broadcast.add(this)
+        onStateChanged(service.state)
     }
 
     override fun onStateChanged(newState: DeviceConnectionState) {
         stateText.postValue(when (newState) {
                 DeviceConnectionState.IDLE -> "Waiting to connect"
                 DeviceConnectionState.PAIRING -> "Pairing..."
-                DeviceConnectionState.CONNECTING -> "Connecting..."
-                DeviceConnectionState.CONNECTED -> "Connected!"
+                DeviceConnectionState.CONNECTING -> "Connecting... 💬"
+                DeviceConnectionState.CONNECTED -> "Connected! ✅"
                 DeviceConnectionState.DISABLED -> "Bluetooth is not available :("
-                DeviceConnectionState.SEARCHING -> "Searching Backpack"
+                DeviceConnectionState.SEARCHING -> "Searching Backpack 🕵️‍♂"
+                DeviceConnectionState.DISCONNECTED -> "Disconnected 🚧"
+                DeviceConnectionState.PAIRING_FAILED -> "Pairing failed ❌"
+                DeviceConnectionState.CONNECTION_FAILED -> "Connection failed ☹️"
             }
         )
 

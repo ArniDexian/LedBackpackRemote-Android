@@ -8,6 +8,7 @@ import android.util.Log
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.lang.Exception
 import java.util.*
 import kotlin.properties.Delegates
 
@@ -22,11 +23,11 @@ class BTConnection(
     private val transferHandler: Handler
 ) {
     enum class State {
-        DISCONNECTED, CONNECTING, CONNECTED
+        DISCONNECTED, CONNECTING, CONNECTED, CONNECTION_FAILED
     }
 
     var state: State by Delegates.observable(State.DISCONNECTED) { _, _, new ->
-        print("BTConnection:State changed $new")
+        Log.e(LOG_TAG,"BTConnection:State changed $new")
         stateDelegate?.invoke(new)
     }
         private set
@@ -37,7 +38,7 @@ class BTConnection(
     private var connectionThread: ConnectedThread? = null
 
     fun establish() {
-        if (state != State.DISCONNECTED) return
+        if (state == State.CONNECTING || state == State.CONNECTED) return
         state = State.CONNECTING
         connectThread = ConnectThread(device).apply {
             start()
@@ -56,6 +57,16 @@ class BTConnection(
             start()
         }
         state = State.CONNECTED
+
+        connectionThread?.write("hi pirog\r\n".toByteArray())
+    }
+
+    private fun onConnectionFailed() {
+        state = State.CONNECTION_FAILED
+    }
+
+    private fun onDisconnect() {
+        state = State.DISCONNECTED
     }
 
     private inner class ConnectThread(device: BluetoothDevice) : Thread() {
@@ -67,11 +78,17 @@ class BTConnection(
             mmSocket?.use { socket ->
                 // Connect to the remote device through the socket. This call blocks
                 // until it succeeds or throws an exception.
-                socket.connect()
-
-                // The connection attempt succeeded. Perform work associated with
-                // the connection in a separate thread.
-                onConnect(socket)
+                try {
+                    Log.e(LOG_TAG, "Trying to open RFCOMM socket")
+                    socket.connect()
+                    Log.e(LOG_TAG, "RFCOMM socket opened!")
+                    // The connection attempt succeeded. Perform work associated with
+                    // the connection in a separate thread.
+                    onConnect(socket)
+                } catch (e: Exception) {
+                    Log.e(LOG_TAG, "Failed to open RFCOMM socket, error: ${e.message}")
+                    onConnectionFailed()
+                }
             }
         }
 
@@ -79,9 +96,10 @@ class BTConnection(
         fun cancel() {
             try {
                 mmSocket?.close()
-                this@BTConnection.state = BTConnection.State.DISCONNECTED
+                onDisconnect()
             } catch (e: IOException) {
                 Log.e(LOG_TAG, "Could not close the client socket", e)
+//                cancel()
             }
         }
     }
@@ -98,22 +116,22 @@ class BTConnection(
             var numBytes: Int // bytes returned from read()
 
             // Keep listening to the InputStream until an exception occurs.
-            while (true) {
-                // Read from the InputStream.
-                numBytes = try {
-                    mmInStream.read(mmBuffer)
-                } catch (e: IOException) {
-                    Log.d(LOG_TAG, "Input stream was disconnected", e)
-                    break
-                }
-
-                // Send the obtained bytes to the UI activity.
-                val readMsg = transferHandler.obtainMessage(
-                    MESSAGE_READ, numBytes, -1,
-                    mmBuffer
-                )
-                readMsg.sendToTarget()
-            }
+//            while (true) {
+//                // Read from the InputStream.
+//                numBytes = try {
+//                    mmInStream.read(mmBuffer)
+//                } catch (e: IOException) {
+//                    Log.d(LOG_TAG, "Input stream was disconnected", e)
+//                    break
+//                }
+//
+//                // Send the obtained bytes to the UI activity.
+//                val readMsg = transferHandler.obtainMessage(
+//                    MESSAGE_READ, numBytes, -1,
+//                    mmBuffer
+//                )
+//                readMsg.sendToTarget()
+//            }
         }
 
         // Call this from the main activity to send data to the remote device.
@@ -144,7 +162,7 @@ class BTConnection(
         fun cancel() {
             try {
                 mmSocket.close()
-                this@BTConnection.state = BTConnection.State.DISCONNECTED
+                onDisconnect()
             } catch (e: IOException) {
                 Log.e(LOG_TAG, "Could not close the connect socket", e)
             }
