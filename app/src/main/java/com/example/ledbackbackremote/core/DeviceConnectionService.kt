@@ -8,4 +8,6 @@ interface DeviceConnectionService {
     }
     val state: DeviceConnectionState
     val broadcast: Broadcasting<Delegate>
+
+    fun getCommunicator(): DeviceCommunicator
 }

@@ -9,7 +9,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Handler
 import android.os.Looper
-import android.os.Message
 import android.util.Log
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.example.ledbackbackremote.Config
@@ -97,22 +96,22 @@ class BTService(
     private fun abortDeviceBroadcastReceiver() {
         context.unregisterReceiver(deviceSearchReceiver)
     }
-
-    private val transferHandler: Handler = object:  Handler(Looper.getMainLooper()) {
-        override fun handleMessage(msg: Message) {
-            when (msg.what) {
-                MESSAGE_READ -> {
-                    Log.e(LOG_TAG, "Message is read")
-                }
-                MESSAGE_WRITE -> {
-                    Log.e(LOG_TAG, "Message is written")
-                }
-                MESSAGE_TOAST -> {
-
-                }
-            }
-        }
-    }
+//
+//    private val transferHandler: Handler = object:  Handler(Looper.getMainLooper()) {
+//        override fun handleMessage(msg: Message) {
+//            when (msg.what) {
+//                MESSAGE_READ -> {
+//                    Log.e(LOG_TAG, "Message is read")
+//                }
+//                MESSAGE_WRITE -> {
+//                    Log.e(LOG_TAG, "Message is written")
+//                }
+//                MESSAGE_TOAST -> {
+//
+//                }
+//            }
+//        }
+//    }
 
     init {
         if (bluetoothAdapter == null) {
@@ -127,6 +126,18 @@ class BTService(
         } else {
             onBtConnect()
         }
+    }
+
+    private var communicator: BTCommunicator? = null
+    override fun getCommunicator(): DeviceCommunicator {
+        if (connection == null) {
+            throw Throwable("BTService.getCommunicator(): Failed to create communicator as no connection exist")
+        }
+        if (communicator == null) {
+            communicator = BTCommunicator(connection!!)
+        }
+
+        return communicator as DeviceCommunicator
     }
 
     private fun onBtConnect() {
@@ -168,8 +179,8 @@ class BTService(
 
         Log.e(LOG_TAG, "Connecting to device ${device.name}")
 
-        connection = BTConnection(device, transferHandler).apply {
-            stateDelegate = {
+        connection = BTConnection(device).apply {
+            stateListener = {
                 onBtConnectionStateChanged(it, device)
             }
             establish()
