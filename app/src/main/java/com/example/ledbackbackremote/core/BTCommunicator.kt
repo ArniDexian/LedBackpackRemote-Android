@@ -8,7 +8,8 @@ class BTCommunicator(
         private set
 
     override fun send(data: Package): Boolean {
-        return connection.write(data.data) && connection.write("\r\n".toByteArray())
+        if (!isEnabled) return false
+        return connection.write(data.data) && connection.write("\r".toByteArray())
     }
 
     override fun observeIncomeData(listener: (result: Result<Package>) -> Unit) {

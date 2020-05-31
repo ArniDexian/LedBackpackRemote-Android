@@ -3,9 +3,8 @@ package com.example.ledbackbackremote.core
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
 import android.util.Log
-import java.io.IOException
-import java.io.InputStream
-import java.io.OutputStream
+import java.io.*
+import java.nio.charset.Charset
 import java.util.*
 import kotlin.properties.Delegates
 
@@ -22,7 +21,7 @@ class BTConnection(
     }
 
     var state: State by Delegates.observable(State.DISCONNECTED) { _, _, new ->
-        Log.e(LOG_TAG,"BTConnection:State changed $new")
+        Log.d(LOG_TAG,"BTConnection:State changed $new")
         stateListener?.invoke(new)
     }
         private set
@@ -58,7 +57,7 @@ class BTConnection(
         }
         state = State.CONNECTED
 
-        write("hi pirog".toByteArray())
+        write("HI\r\n".toByteArray())
     }
 
     private fun onConnectionFailed() {
@@ -75,13 +74,11 @@ class BTConnection(
         }
 
         override fun run() {
-            mmSocket?.use { socket ->
-                // Connect to the remote device through the socket. This call blocks
-                // until it succeeds or throws an exception.
+            mmSocket?.also { socket ->
                 try {
-                    Log.e(LOG_TAG, "Trying to open RFCOMM socket")
+                    Log.d(LOG_TAG, "Trying to open RFCOMM socket")
                     socket.connect()
-                    Log.e(LOG_TAG, "RFCOMM socket opened!")
+                    Log.d(LOG_TAG, "RFCOMM socket opened!")
                     // The connection attempt succeeded. Perform work associated with
                     // the connection in a separate thread.
                     onConnect(socket)
@@ -106,31 +103,40 @@ class BTConnection(
     private inner class ConnectedThread(
         private val mmSocket: BluetoothSocket
     ) : Thread() {
-
-        private val mmInStream: InputStream = mmSocket.inputStream
         private val mmOutStream: OutputStream = mmSocket.outputStream
-        private val mmBuffer: ByteArray = ByteArray(1024) // mmBuffer store for the stream
+        private val bufferedReader = BufferedReader(InputStreamReader(mmSocket.inputStream,"US-ASCII"))
 
         override fun run() {
-            var numBytes: Int // bytes returned from read()
+            while (true) {
+                if (!listenForIncomingData()) {
+                    if (!mmSocket.isConnected) {
+                        onDisconnect()
+                        break
+                    }
 
-            // Keep listening to the InputStream until an exception occurs.
-//            while (true) {
-//                // Read from the InputStream.
-//                numBytes = try {
-//                    mmInStream.read(mmBuffer)
-//                } catch (e: IOException) {
-//                    Log.d(LOG_TAG, "Input stream was disconnected", e)
-//                    break
-//                }
-//
-//                // Send the obtained bytes to the UI activity.
-//                val readMsg = transferHandler.obtainMessage(
-//                    MESSAGE_READ, numBytes, -1,
-//                    mmBuffer
-//                )
-//                readMsg.sendToTarget()
-//            }
+                }
+            }
+        }
+
+        private fun listenForIncomingData(): Boolean {
+            val value = try {
+                bufferedReader.readLine()
+            } catch (e: IOException) {
+                Log.e(LOG_TAG, "Input stream was disconnected", e)
+                responseListener?.invoke(
+                    Result.failure(Throwable("Reading thread is interrupted", e))
+                )
+                return false
+            }
+
+            value?.also {
+                Log.d(LOG_TAG, "Received data: ${it}\n")
+                responseListener?.invoke(
+                    Result.success(it.toByteArray())
+                )
+            }
+
+            return true
         }
 
         // Call this from the main activity to send data to the remote device.

@@ -56,7 +56,7 @@ class BTService(
 
                     val device: BluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
                     if (device.name == config.deviceName) {
-                        Log.e(LOG_TAG, "Found device ${device.name}, creating bond")
+                        Log.d(LOG_TAG, "Found device ${device.name}, creating bond")
                         stopDiscovering()
                         state = DeviceConnectionState.PAIRING
                         device.createBond()
@@ -67,7 +67,7 @@ class BTService(
 //                    val device: BluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
 //                    val type = intent.getIntExtra(BluetoothDevice.EXTRA_PAIRING_VARIANT, BluetoothDevice.ERROR)
 //                    if (type == BluetoothDevice.PAIRING_VARIANT_PIN) {
-//                        Log.e(LOG_TAG, "Setting pin")
+//                        Log.d(LOG_TAG, "Setting pin")
 //                        device.setPin(config.devicePin.toByteArray())
 //                        device.createBond()
 //                        abortBroadcast()
@@ -76,14 +76,14 @@ class BTService(
                 BluetoothDevice.ACTION_BOND_STATE_CHANGED -> {
                     val device: BluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
                     when (device.bondState) {
-                        BOND_BONDING -> Log.e(LOG_TAG, "Changed bond state to BONDING")
+                        BOND_BONDING -> Log.d(LOG_TAG, "Changed bond state to BONDING")
                         BOND_BONDED -> {
-                            Log.e(LOG_TAG, "Changed bond state to BONDED")
+                            Log.d(LOG_TAG, "Changed bond state to BONDED")
                             abortDeviceBroadcastReceiver()
                             connectDevice(device)
                         }
                         BOND_NONE -> {
-                            Log.e(LOG_TAG, "Changed bond state to BOND_NONE")
+                            Log.d(LOG_TAG, "Changed bond state to BOND_NONE")
                             abortDeviceBroadcastReceiver()
                             state = DeviceConnectionState.PAIRING_FAILED
                         }
@@ -96,22 +96,6 @@ class BTService(
     private fun abortDeviceBroadcastReceiver() {
         context.unregisterReceiver(deviceSearchReceiver)
     }
-//
-//    private val transferHandler: Handler = object:  Handler(Looper.getMainLooper()) {
-//        override fun handleMessage(msg: Message) {
-//            when (msg.what) {
-//                MESSAGE_READ -> {
-//                    Log.e(LOG_TAG, "Message is read")
-//                }
-//                MESSAGE_WRITE -> {
-//                    Log.e(LOG_TAG, "Message is written")
-//                }
-//                MESSAGE_TOAST -> {
-//
-//                }
-//            }
-//        }
-//    }
 
     init {
         if (bluetoothAdapter == null) {
@@ -177,7 +161,7 @@ class BTService(
         if (state == DeviceConnectionState.CONNECTING) return
         state = DeviceConnectionState.CONNECTING
 
-        Log.e(LOG_TAG, "Connecting to device ${device.name}")
+        Log.d(LOG_TAG, "Connecting to device ${device.name}")
 
         connection = BTConnection(device).apply {
             stateListener = {
@@ -193,12 +177,12 @@ class BTService(
                 this@BTService.state = DeviceConnectionState.CONNECTING
             BTConnection.State.CONNECTED ->
                 this@BTService.state = DeviceConnectionState.CONNECTED
-            BTConnection.State.DISCONNECTED ->
-                this@BTService.state = DeviceConnectionState.DISCONNECTED
+            BTConnection.State.DISCONNECTED -> {
+                onDisconnect()
+            }
             BTConnection.State.CONNECTION_FAILED -> {
                 this@BTService.state = DeviceConnectionState.CONNECTION_FAILED
                 retryConnect(device)
-
             }
         }
     }
@@ -207,14 +191,21 @@ class BTService(
     private fun retryConnect(device: BluetoothDevice) {
         if (retryCount > 3) {
             retryCount = 0
+            onDisconnect()
             return
         }
 
         retryCount += 1
-        Log.e(LOG_TAG, "retry to connect in 2s, attempts: $retryCount")
+        Log.d(LOG_TAG, "retry to connect in 2s, attempts: $retryCount")
 
         Handler(Looper.getMainLooper()).postDelayed({
             connectDevice(device)
         }, 2000)
+    }
+
+    private fun onDisconnect() {
+        state = DeviceConnectionState.DISCONNECTED
+        connection = null
+        communicator = null
     }
 }
