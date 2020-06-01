@@ -2,7 +2,9 @@ package com.example.ledbackbackremote
 
 import com.example.ledbackbackremote.core.BTService
 import com.example.ledbackbackremote.core.DeviceConnectionService
+import com.example.ledbackbackremote.core.emulation.BTFakeService
 import com.example.ledbackbackremote.model.BTConnectionViewModel
+import com.example.ledbackbackremote.utils.isEmulator
 import org.koin.dsl.module
 
 private val config = Config(
@@ -11,6 +13,11 @@ private val config = Config(
 )
 
 var mainModule = module {
-    single<DeviceConnectionService> { BTService(get(), config) }
+    single<DeviceConnectionService> {
+        if (isEmulator())
+            BTFakeService()
+        else
+            BTService(get(), config)
+    }
     factory { BTConnectionViewModel(get()) }
 }
