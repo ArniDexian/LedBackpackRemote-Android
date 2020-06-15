@@ -4,4 +4,13 @@
     <string name="title_activity_btconnection">BTConnectionActivity</string>
     <string name="bt_connection_description">Hello, please switch on the Backpack and wait until bluetooth connection will be established</string>
     <string name="bt_connection_continue">Let\'s Start!</string>
+    <string name="adjust_brightness">Adjust Brightness</string>
+    <string name="bp_content_title">Content</string>
+    <string name="bp_content_text_button">Text</string>
+    <string name="bp_content_sprite_button">Sprite</string>
+    <string name="choose_sprite_title">Choose sprite</string>
+    <string name="prev_sprite_button">Previous</string>
+    <string name="next_sprite_button">Next</string>
+    <string name="enter_custom_text_title">Enter your text to display</string>
+    <string name="enter_custom_button_title">Send</string>
 </resources>

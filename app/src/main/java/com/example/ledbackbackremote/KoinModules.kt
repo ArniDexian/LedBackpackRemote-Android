@@ -4,6 +4,7 @@ import com.example.ledbackbackremote.core.BTService
 import com.example.ledbackbackremote.core.DeviceConnectionService
 import com.example.ledbackbackremote.core.emulation.BTFakeService
 import com.example.ledbackbackremote.model.BTConnectionViewModel
+import com.example.ledbackbackremote.model.RemoteControlViewModel
 import com.example.ledbackbackremote.utils.isEmulator
 import org.koin.dsl.module
 
@@ -19,5 +20,10 @@ var mainModule = module {
         else
             BTService(get(), config)
     }
-    factory { BTConnectionViewModel(get()) }
+    factory {
+        BTConnectionViewModel(get())
+    }
+    factory {
+        RemoteControlViewModel(get<DeviceConnectionService>().getCommunicator())
+    }
 }

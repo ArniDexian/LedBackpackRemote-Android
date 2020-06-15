@@ -29,7 +29,8 @@ class BTConnectionActivity : AppCompatActivity() {
     }
 
     fun openAppAction(view: View) {
-        val intent = Intent(this, ItemListActivity::class.java)
+        val intent = Intent(this, RemoteControlActivity::class.java)
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
         startActivity(intent)
     }
 }
