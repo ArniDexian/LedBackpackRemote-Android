@@ -1,6 +1,7 @@
 package com.example.ledbackbackremote
 
 import com.example.ledbackbackremote.core.BTService
+import com.example.ledbackbackremote.core.CommandCommunicator
 import com.example.ledbackbackremote.core.DeviceConnectionService
 import com.example.ledbackbackremote.core.emulation.BTFakeService
 import com.example.ledbackbackremote.model.BTConnectionViewModel
@@ -24,6 +25,10 @@ var mainModule = module {
         BTConnectionViewModel(get())
     }
     factory {
-        RemoteControlViewModel(get<DeviceConnectionService>().getCommunicator())
+        RemoteControlViewModel(
+            CommandCommunicator(
+                get<DeviceConnectionService>().getCommunicator()
+            )
+        )
     }
 }

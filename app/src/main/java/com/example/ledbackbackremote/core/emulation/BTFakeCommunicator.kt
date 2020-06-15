@@ -1,6 +1,8 @@
 package com.example.ledbackbackremote.core.emulation
 
+import android.util.Log
 import com.example.ledbackbackremote.core.DeviceCommunicator
+import com.example.ledbackbackremote.core.LOG_TAG
 import com.example.ledbackbackremote.core.Package
 
 class BTFakeCommunicator: DeviceCommunicator {
@@ -13,6 +15,7 @@ class BTFakeCommunicator: DeviceCommunicator {
         listener?.invoke(
             Result.success(data)
         )
+        Log.i(LOG_TAG, "Sending fake package: $data")
         return true
     }
 
